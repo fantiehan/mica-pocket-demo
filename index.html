@@ -19,7 +19,6 @@
   --rail-width: 97px;
   --panel-width: 281px;
   --drawer-width: calc(var(--rail-width) + var(--panel-width));
-  --app-height: 100dvh;
   --bottom-nav-height: 72px;
   --device-top-offset: env(safe-area-inset-top, 0px);
   --chat-header-height: calc(var(--device-top-offset) + 213px);
@@ -54,7 +53,8 @@ body {
   inset: 0;
   width: 100%;
   min-width: 320px;
-  height: 100%;
+  height: 100vh;
+  height: 100dvh;
   margin: 0;
   overflow: hidden;
   overscroll-behavior: none;
@@ -69,7 +69,7 @@ button {
   position: relative;
   width: min(100vw, var(--canvas-width));
   height: 100vh;
-  height: var(--app-height);
+  height: 100dvh;
   margin: 0 auto;
   overflow: hidden;
   background: var(--bg);
@@ -437,14 +437,13 @@ button {
 
 
 .bottom-nav {
-  position: fixed;
+  position: absolute;
   z-index: 2;
   right: 0;
   bottom: 0;
   left: 0;
-  width: min(100vw, var(--canvas-width));
+  width: 100%;
   height: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
-  margin: 0 auto;
   display: grid;
   grid-template-columns: repeat(6, 1fr);
   padding-bottom: max(6px, env(safe-area-inset-bottom, 0px));
@@ -1040,24 +1039,9 @@ button {
 (function exposeImmersiveController(globalScope) {
   'use strict';
 
-  function createImmersiveController({ root, eventTarget, documentElement, visualViewport }) {
-    if (!root || !eventTarget || !documentElement) {
-      throw new TypeError('Immersive controller requires root, eventTarget, and documentElement.');
-    }
-
-    const viewport = visualViewport || globalScope.visualViewport;
-    const win = eventTarget.defaultView || globalScope;
-
-    function viewportHeight() {
-      const heights = [viewport && viewport.height, win.innerHeight, root.clientHeight]
-        .map(Number)
-        .filter((height) => Number.isFinite(height) && height > 0);
-      return Math.round(Math.max(0, ...heights));
-    }
-
-    function syncViewportHeight() {
-      const height = viewportHeight();
-      if (height > 0) documentElement.style.setProperty('--app-height', `${height}px`);
+  function createImmersiveController({ eventTarget }) {
+    if (!eventTarget) {
+      throw new TypeError('Immersive controller requires an event target.');
     }
 
     function preventScroll(event) {
@@ -1065,35 +1049,17 @@ button {
       event.preventDefault();
     }
 
-    syncViewportHeight();
-
-    if (viewport && typeof viewport.addEventListener === 'function') {
-      viewport.addEventListener('resize', syncViewportHeight);
-    }
-    if (win && typeof win.addEventListener === 'function') {
-      win.addEventListener('resize', syncViewportHeight);
-      win.addEventListener('orientationchange', syncViewportHeight);
-    }
-
     eventTarget.addEventListener('touchmove', preventScroll, { passive: false });
     eventTarget.addEventListener('wheel', preventScroll, { passive: false });
     eventTarget.addEventListener('gesturestart', preventScroll, { passive: false });
 
     function destroy() {
-      if (viewport && typeof viewport.removeEventListener === 'function') {
-        viewport.removeEventListener('resize', syncViewportHeight);
-      }
-      if (win && typeof win.removeEventListener === 'function') {
-        win.removeEventListener('resize', syncViewportHeight);
-        win.removeEventListener('orientationchange', syncViewportHeight);
-      }
       eventTarget.removeEventListener('touchmove', preventScroll);
       eventTarget.removeEventListener('wheel', preventScroll);
       eventTarget.removeEventListener('gesturestart', preventScroll);
     }
 
     return {
-      syncViewportHeight,
       destroy,
     };
   }
@@ -1130,10 +1096,7 @@ button {
     const root = document.querySelector('[data-testid="app-shell"]');
 
     globalScope.immersiveController = globalScope.createImmersiveController({
-      root,
       eventTarget: document,
-      documentElement: document.documentElement,
-      visualViewport: globalScope.visualViewport,
     });
 
     globalScope.drawerController = globalScope.createDrawerController({
